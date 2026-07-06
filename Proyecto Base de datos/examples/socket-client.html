@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cliente Socket.IO SION</title>
+</head>
+<body>
+  <h1>Eventos de ubicación SION</h1>
+  <pre id="output">Conectando...</pre>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script>
+    const API_KEY = 'REEMPLAZAR_CON_TRACKING_API_KEY';
+    const output = document.getElementById('output');
+    const socket = io('http://localhost:3000', { auth: { apiKey: API_KEY } });
+
+    const show = (event, data) => {
+      output.textContent = `${event}\n${JSON.stringify(data, null, 2)}\n\n${output.textContent}`;
+    };
+
+    socket.on('conexion:lista', (data) => show('conexion:lista', data));
+    socket.on('ubicacion:actualizada', (data) => show('ubicacion:actualizada', data));
+    socket.on('ubicacion:detenida', (data) => show('ubicacion:detenida', data));
+    socket.on('connect_error', (error) => show('connect_error', { message: error.message }));
+  </script>
+</body>
+</html>

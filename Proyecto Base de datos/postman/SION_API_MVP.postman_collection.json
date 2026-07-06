@@ -1,0 +1,204 @@
+{
+  "info": {
+    "_postman_id": "35f9bfde-b7a0-46a3-a408-8575f0f5a621",
+    "name": "SION API MVP",
+    "description": "Colección para demostrar productos, variantes, inventario, movimientos y ubicación.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1" },
+    { "key": "productId", "value": "" },
+    { "key": "variantId", "value": "" },
+    { "key": "movementId", "value": "" },
+    { "key": "trackingApiKey", "value": "cambiar_por_clave_segura", "type": "secret" }
+  ],
+  "item": [
+    {
+      "name": "Salud y documentación",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health" }
+        },
+        {
+          "name": "OpenAPI JSON",
+          "request": { "method": "GET", "header": [], "url": "http://localhost:3000/api-docs.json" }
+        }
+      ]
+    },
+    {
+      "name": "Productos y variantes",
+      "item": [
+        {
+          "name": "Crear producto con variante",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data?._id) pm.collectionVariables.set('productId', json.data._id);",
+                  "if (json.data?.variantes?.[0]?._id) pm.collectionVariables.set('variantId', json.data.variantes[0]._id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Polerón SION Gracia\",\n  \"descripcion\": \"Polerón oversize de algodón\",\n  \"categoria\": \"Polerones\",\n  \"precio\": 34990,\n  \"variantes\": [\n    {\n      \"sku\": \"SION-POL-GRACIA-NEG-M\",\n      \"talla\": \"M\",\n      \"color\": \"Negro\",\n      \"stockMinimo\": 3\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/productos"
+          }
+        },
+        {
+          "name": "Listar productos",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/productos?page=1&limit=10&activo=true" }
+        },
+        {
+          "name": "Obtener producto",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/productos/{{productId}}" }
+        },
+        {
+          "name": "Actualizar producto",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"precio\": 37990\n}" },
+            "url": "{{baseUrl}}/productos/{{productId}}"
+          }
+        },
+        {
+          "name": "Agregar variante",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["const json = pm.response.json();", "if (json.data?._id) pm.collectionVariables.set('variantId', json.data._id);"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"sku\": \"SION-POL-GRACIA-BLA-L\",\n  \"talla\": \"L\",\n  \"color\": \"Blanco\",\n  \"stockMinimo\": 4\n}" },
+            "url": "{{baseUrl}}/productos/{{productId}}/variantes"
+          }
+        },
+        {
+          "name": "Consultar stock del producto",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/productos/{{productId}}/stock" }
+        }
+      ]
+    },
+    {
+      "name": "Inventario",
+      "item": [
+        {
+          "name": "Registrar entrada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["const json = pm.response.json();", "if (json.data?.movimiento?._id) pm.collectionVariables.set('movementId', json.data.movimiento._id);"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"varianteId\": \"{{variantId}}\",\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": 10,\n  \"motivo\": \"Reposición de proveedor\"\n}" },
+            "url": "{{baseUrl}}/inventario/movimientos"
+          }
+        },
+        {
+          "name": "Registrar salida",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"varianteId\": \"{{variantId}}\",\n  \"tipo\": \"SALIDA\",\n  \"cantidad\": 2,\n  \"motivo\": \"Venta presencial\"\n}" },
+            "url": "{{baseUrl}}/inventario/movimientos"
+          }
+        },
+        {
+          "name": "Registrar ajuste",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"varianteId\": \"{{variantId}}\",\n  \"tipo\": \"AJUSTE\",\n  \"stockObjetivo\": 8,\n  \"motivo\": \"Corrección después del conteo físico\"\n}" },
+            "url": "{{baseUrl}}/inventario/movimientos"
+          }
+        },
+        {
+          "name": "Consultar stock bajo",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/inventario/stock-bajo?page=1&limit=10" }
+        },
+        {
+          "name": "Consultar resumen",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/inventario/resumen" }
+        }
+      ]
+    },
+    {
+      "name": "Movimientos",
+      "item": [
+        {
+          "name": "Listar movimientos",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/movimientos?page=1&limit=10" }
+        },
+        {
+          "name": "Obtener movimiento",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/movimientos/{{movementId}}" }
+        },
+        {
+          "name": "Historial del producto",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/movimientos/producto/{{productId}}?page=1&limit=10" }
+        }
+      ]
+    },
+    {
+      "name": "Ubicación",
+      "auth": {
+        "type": "apikey",
+        "apikey": [
+          { "key": "key", "value": "X-API-Key", "type": "string" },
+          { "key": "value", "value": "{{trackingApiKey}}", "type": "string" },
+          { "key": "in", "value": "header", "type": "string" }
+        ]
+      },
+      "item": [
+        {
+          "name": "Actualizar ubicación",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": ["pm.variables.set('capturadaEn', new Date().toISOString());"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"latitud\": -33.45,\n  \"longitud\": -70.64,\n  \"precisionMetros\": 10,\n  \"velocidadMps\": 0,\n  \"rumboGrados\": 180,\n  \"capturadaEn\": \"{{capturadaEn}}\"\n}" },
+            "url": "{{baseUrl}}/ubicacion"
+          }
+        },
+        {
+          "name": "Consultar ubicación",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/ubicacion" }
+        },
+        {
+          "name": "Detener ubicación",
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/ubicacion/detener" }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,873 @@
+openapi: 3.1.0
+info:
+  title: API de Gestión de Inventario SION
+  version: 1.1.0
+  description: >-
+    API REST para administrar productos, variantes, stock, movimientos de inventario
+    y la última ubicación de un único usuario autorizado.
+  contact:
+    name: Jean Paul Marchant Lillo
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Desarrollo local
+  - url: https://api.example.com/api/v1
+    description: Producción de referencia
+tags:
+  - name: Health
+  - name: Productos
+  - name: Variantes
+  - name: Inventario
+  - name: Movimientos
+  - name: Ubicación
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Comprueba el estado del servicio
+      operationId: getHealth
+      responses:
+        '200':
+          description: Servicio operativo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /productos:
+    post:
+      tags: [Productos]
+      summary: Crea un producto
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+            example:
+              nombre: Polerón SION Gracia
+              descripcion: Polerón oversize de algodón
+              categoria: Polerones
+              precio: 34990
+              variantes:
+                - sku: SION-POL-GRACIA-NEG-M
+                  talla: M
+                  color: Negro
+                  stockMinimo: 3
+      responses:
+        '201':
+          description: Producto creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+    get:
+      tags: [Productos]
+      summary: Lista productos
+      operationId: listProducts
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: buscar
+          in: query
+          schema: { type: string, maxLength: 120 }
+        - name: categoria
+          in: query
+          schema: { type: string, maxLength: 80 }
+        - name: activo
+          in: query
+          schema: { type: boolean }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [nombre, precio, createdAt]
+            default: createdAt
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Product' }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+  /productos/{productoId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+    get:
+      tags: [Productos]
+      summary: Obtiene un producto
+      operationId: getProduct
+      responses:
+        '200':
+          description: Producto encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductResponse' }
+        '400': { $ref: '#/components/responses/InvalidObjectId' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+    patch:
+      tags: [Productos]
+      summary: Actualiza campos generales de un producto
+      operationId: updateProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductUpdate' }
+      responses:
+        '200':
+          description: Producto actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+    delete:
+      tags: [Productos]
+      summary: Desactiva un producto
+      operationId: deactivateProduct
+      responses:
+        '200':
+          description: Producto desactivado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductResponse' }
+        '400': { $ref: '#/components/responses/InvalidObjectId' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+  /productos/{productoId}/variantes:
+    post:
+      tags: [Variantes]
+      summary: Agrega una variante con stock inicial cero
+      operationId: createVariant
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VariantCreate' }
+            example:
+              sku: SION-POL-GRACIA-BLA-L
+              talla: L
+              color: Blanco
+              stockMinimo: 4
+      responses:
+        '201':
+          description: Variante creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VariantResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+        '422': { $ref: '#/components/responses/BusinessRuleError' }
+  /productos/{productoId}/variantes/{varianteId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - $ref: '#/components/parameters/VariantId'
+    patch:
+      tags: [Variantes]
+      summary: Actualiza una variante sin modificar su stock
+      operationId: updateVariant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VariantUpdate' }
+      responses:
+        '200':
+          description: Variante actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VariantResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+    delete:
+      tags: [Variantes]
+      summary: Desactiva una variante
+      operationId: deactivateVariant
+      responses:
+        '200':
+          description: Variante desactivada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VariantResponse' }
+        '400': { $ref: '#/components/responses/InvalidObjectId' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+  /productos/{productoId}/stock:
+    get:
+      tags: [Variantes]
+      summary: Obtiene el stock por variante de un producto
+      operationId: getProductStock
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Stock del producto
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data, message]
+                properties:
+                  ok: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/ProductStock' }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/InvalidObjectId' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+  /inventario/movimientos:
+    post:
+      tags: [Inventario]
+      summary: Registra una entrada, salida o ajuste
+      operationId: registerInventoryMovement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/EntryMovementRequest'
+                - $ref: '#/components/schemas/ExitMovementRequest'
+                - $ref: '#/components/schemas/AdjustmentMovementRequest'
+            examples:
+              entrada:
+                value:
+                  productoId: 64f000000000000000000001
+                  varianteId: 64f000000000000000000002
+                  tipo: ENTRADA
+                  cantidad: 10
+                  motivo: Reposición de proveedor
+              salida:
+                value:
+                  productoId: 64f000000000000000000001
+                  varianteId: 64f000000000000000000002
+                  tipo: SALIDA
+                  cantidad: 2
+                  motivo: Venta presencial
+              ajuste:
+                value:
+                  productoId: 64f000000000000000000001
+                  varianteId: 64f000000000000000000002
+                  tipo: AJUSTE
+                  stockObjetivo: 8
+                  motivo: Conteo físico
+      responses:
+        '201':
+          description: Movimiento registrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InventoryMovementResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+        '422': { $ref: '#/components/responses/BusinessRuleError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableError' }
+  /inventario/stock-bajo:
+    get:
+      tags: [Inventario]
+      summary: Lista variantes con stock bajo
+      operationId: getLowStock
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: categoria
+          in: query
+          schema: { type: string }
+        - name: incluirAgotados
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Variantes con stock bajo
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/LowStockItem' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /inventario/resumen:
+    get:
+      tags: [Inventario]
+      summary: Obtiene estadísticas básicas del inventario
+      operationId: getInventorySummary
+      responses:
+        '200':
+          description: Resumen del inventario
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data, message]
+                properties:
+                  ok: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/InventorySummary' }
+                  message: { type: string }
+  /movimientos:
+    get:
+      tags: [Movimientos]
+      summary: Lista movimientos con filtros
+      operationId: listMovements
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: tipo
+          in: query
+          schema: { type: string, enum: [ENTRADA, SALIDA, AJUSTE] }
+        - name: productoId
+          in: query
+          schema: { $ref: '#/components/schemas/ObjectId' }
+        - name: sku
+          in: query
+          schema: { type: string }
+        - name: desde
+          in: query
+          schema: { type: string, format: date-time }
+        - name: hasta
+          in: query
+          schema: { type: string, format: date-time }
+        - name: sort
+          in: query
+          schema: { type: string, const: createdAt, default: createdAt }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Lista paginada de movimientos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Movement' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /movimientos/{movimientoId}:
+    get:
+      tags: [Movimientos]
+      summary: Obtiene un movimiento
+      operationId: getMovement
+      parameters:
+        - $ref: '#/components/parameters/MovementId'
+      responses:
+        '200':
+          description: Movimiento encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data, message]
+                properties:
+                  ok: { type: boolean, const: true }
+                  data: { $ref: '#/components/schemas/Movement' }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/InvalidObjectId' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+  /movimientos/producto/{productoId}:
+    get:
+      tags: [Movimientos]
+      summary: Lista el historial de un producto
+      operationId: listProductMovements
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: tipo
+          in: query
+          schema: { type: string, enum: [ENTRADA, SALIDA, AJUSTE] }
+        - name: sku
+          in: query
+          schema: { type: string }
+        - name: desde
+          in: query
+          schema: { type: string, format: date-time }
+        - name: hasta
+          in: query
+          schema: { type: string, format: date-time }
+        - name: sort
+          in: query
+          schema: { type: string, const: createdAt, default: createdAt }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Historial paginado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Movement' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /ubicacion:
+    patch:
+      tags: [Ubicación]
+      summary: Crea o actualiza la última ubicación
+      operationId: updateLocation
+      security:
+        - TrackingApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LocationUpdate' }
+            example:
+              latitud: -33.45
+              longitud: -70.64
+              precisionMetros: 12.5
+              velocidadMps: 0
+              rumboGrados: 180
+              capturadaEn: '2026-07-05T20:00:00.000Z'
+      responses:
+        '200':
+          description: Ubicación actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LocationResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+        '429': { $ref: '#/components/responses/RateLimitError' }
+    get:
+      tags: [Ubicación]
+      summary: Obtiene la última ubicación conocida
+      operationId: getLocation
+      security:
+        - TrackingApiKey: []
+      responses:
+        '200':
+          description: Última ubicación o estado sin datos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LocationResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+  /ubicacion/detener:
+    post:
+      tags: [Ubicación]
+      summary: Detiene la compartición sin borrar la posición
+      operationId: stopLocation
+      security:
+        - TrackingApiKey: []
+      responses:
+        '200':
+          description: Compartición detenida
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data, message]
+                properties:
+                  ok: { type: boolean, const: true }
+                  data:
+                    type: object
+                    required: [usuarioId, estado, fecha]
+                    properties:
+                      usuarioId: { type: string }
+                      estado: { type: string, const: INACTIVA }
+                      fecha: { type: string, format: date-time }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+        '404': { $ref: '#/components/responses/NotFoundError' }
+components:
+  securitySchemes:
+    TrackingApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+    ProductId:
+      name: productoId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    VariantId:
+      name: varianteId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    MovementId:
+      name: movimientoId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+  responses:
+    ValidationError:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            ok: false
+            error:
+              code: VALIDATION_ERROR
+              message: Los datos enviados no son válidos
+              details:
+                - path: nombre
+                  message: Required
+    InvalidObjectId:
+      description: Identificador inválido
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    UnauthorizedError:
+      description: API Key ausente o incorrecta
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            ok: false
+            error:
+              code: INVALID_API_KEY
+              message: API Key ausente o incorrecta
+              details: []
+    NotFoundError:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ConflictError:
+      description: Conflicto de datos o stock insuficiente
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    BusinessRuleError:
+      description: Regla de negocio no cumplida
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    RateLimitError:
+      description: Actualización demasiado frecuente
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ServiceUnavailableError:
+      description: Base de datos no disponible
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    ObjectId:
+      type: string
+      pattern: '^[a-fA-F0-9]{24}$'
+      examples: [64f000000000000000000001]
+    VariantCreate:
+      type: object
+      additionalProperties: false
+      required: [sku, talla, color]
+      properties:
+        sku: { type: string, minLength: 2, maxLength: 80 }
+        talla: { type: string, minLength: 1, maxLength: 20 }
+        color: { type: string, minLength: 2, maxLength: 50 }
+        stockMinimo: { type: integer, minimum: 0, default: 3 }
+        activo: { type: boolean, default: true }
+    VariantUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        sku: { type: string, minLength: 2, maxLength: 80 }
+        talla: { type: string, minLength: 1, maxLength: 20 }
+        color: { type: string, minLength: 2, maxLength: 50 }
+        stockMinimo: { type: integer, minimum: 0 }
+        activo: { type: boolean }
+    Variant:
+      allOf:
+        - $ref: '#/components/schemas/VariantCreate'
+        - type: object
+          required: [_id, stock, createdAt, updatedAt]
+          properties:
+            _id: { $ref: '#/components/schemas/ObjectId' }
+            stock: { type: integer, minimum: 0 }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    ProductCreate:
+      type: object
+      additionalProperties: false
+      required: [nombre, categoria, precio]
+      properties:
+        nombre: { type: string, minLength: 2, maxLength: 120 }
+        descripcion: { type: string, maxLength: 1000, default: '' }
+        categoria: { type: string, minLength: 2, maxLength: 80 }
+        precio: { type: number, minimum: 0 }
+        variantes:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/VariantCreate' }
+    ProductUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        nombre: { type: string, minLength: 2, maxLength: 120 }
+        descripcion: { type: string, maxLength: 1000 }
+        categoria: { type: string, minLength: 2, maxLength: 80 }
+        precio: { type: number, minimum: 0 }
+        activo: { type: boolean }
+    Product:
+      allOf:
+        - $ref: '#/components/schemas/ProductCreate'
+        - type: object
+          required: [_id, activo, variantes, createdAt, updatedAt]
+          properties:
+            _id: { $ref: '#/components/schemas/ObjectId' }
+            activo: { type: boolean }
+            variantes:
+              type: array
+              items: { $ref: '#/components/schemas/Variant' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    ProductResponse:
+      type: object
+      required: [ok, data, message]
+      properties:
+        ok: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/Product' }
+        message: { type: string }
+    VariantResponse:
+      type: object
+      required: [ok, data, message]
+      properties:
+        ok: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/Variant' }
+        message: { type: string }
+    PaginationMeta:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        totalPages: { type: integer }
+    PaginatedBase:
+      type: object
+      required: [ok, data, meta]
+      properties:
+        ok: { type: boolean, const: true }
+        data: { type: array }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    ProductStockVariant:
+      type: object
+      required: [varianteId, sku, talla, color, stock, stockMinimo, activo, estadoStock]
+      properties:
+        varianteId: { $ref: '#/components/schemas/ObjectId' }
+        sku: { type: string }
+        talla: { type: string }
+        color: { type: string }
+        stock: { type: integer }
+        stockMinimo: { type: integer }
+        activo: { type: boolean }
+        estadoStock: { type: string, enum: [AGOTADO, BAJO, DISPONIBLE] }
+    ProductStock:
+      type: object
+      required: [productoId, nombre, stockTotal, variantes]
+      properties:
+        productoId: { $ref: '#/components/schemas/ObjectId' }
+        nombre: { type: string }
+        stockTotal: { type: integer }
+        variantes:
+          type: array
+          items: { $ref: '#/components/schemas/ProductStockVariant' }
+    EntryMovementRequest:
+      type: object
+      additionalProperties: false
+      required: [productoId, varianteId, tipo, cantidad]
+      properties:
+        productoId: { $ref: '#/components/schemas/ObjectId' }
+        varianteId: { $ref: '#/components/schemas/ObjectId' }
+        tipo: { type: string, const: ENTRADA }
+        cantidad: { type: integer, minimum: 1 }
+        motivo: { type: string, maxLength: 500, default: '' }
+    ExitMovementRequest:
+      type: object
+      additionalProperties: false
+      required: [productoId, varianteId, tipo, cantidad]
+      properties:
+        productoId: { $ref: '#/components/schemas/ObjectId' }
+        varianteId: { $ref: '#/components/schemas/ObjectId' }
+        tipo: { type: string, const: SALIDA }
+        cantidad: { type: integer, minimum: 1 }
+        motivo: { type: string, maxLength: 500, default: '' }
+    AdjustmentMovementRequest:
+      type: object
+      additionalProperties: false
+      required: [productoId, varianteId, tipo, stockObjetivo, motivo]
+      properties:
+        productoId: { $ref: '#/components/schemas/ObjectId' }
+        varianteId: { $ref: '#/components/schemas/ObjectId' }
+        tipo: { type: string, const: AJUSTE }
+        stockObjetivo: { type: integer, minimum: 0 }
+        motivo: { type: string, minLength: 1, maxLength: 500 }
+    Movement:
+      type: object
+      required:
+        [_id, producto, variante, sku, tipo, cantidad, stockAnterior, stockNuevo, motivo, createdAt, updatedAt]
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        producto:
+          oneOf:
+            - { $ref: '#/components/schemas/ObjectId' }
+            - type: object
+              properties:
+                _id: { $ref: '#/components/schemas/ObjectId' }
+                nombre: { type: string }
+                categoria: { type: string }
+                precio: { type: number }
+        variante: { $ref: '#/components/schemas/ObjectId' }
+        sku: { type: string }
+        tipo: { type: string, enum: [ENTRADA, SALIDA, AJUSTE] }
+        cantidad: { type: integer, minimum: 1 }
+        direccionAjuste:
+          type: [string, 'null']
+          enum: [AUMENTO, DISMINUCION, null]
+        stockAnterior: { type: integer, minimum: 0 }
+        stockNuevo: { type: integer, minimum: 0 }
+        motivo: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    InventoryMovementResponse:
+      type: object
+      required: [ok, data, message]
+      properties:
+        ok: { type: boolean, const: true }
+        data:
+          type: object
+          properties:
+            movimiento: { $ref: '#/components/schemas/Movement' }
+            productoId: { $ref: '#/components/schemas/ObjectId' }
+            varianteId: { $ref: '#/components/schemas/ObjectId' }
+            sku: { type: string }
+            stockAnterior: { type: integer }
+            stockNuevo: { type: integer }
+        message: { type: string }
+    LowStockItem:
+      type: object
+      required: [productoId, nombre, categoria, varianteId, sku, talla, color, stock, stockMinimo, estadoStock]
+      properties:
+        productoId: { $ref: '#/components/schemas/ObjectId' }
+        nombre: { type: string }
+        categoria: { type: string }
+        precio: { type: number }
+        varianteId: { $ref: '#/components/schemas/ObjectId' }
+        sku: { type: string }
+        talla: { type: string }
+        color: { type: string }
+        stock: { type: integer }
+        stockMinimo: { type: integer }
+        estadoStock: { type: string, enum: [AGOTADO, BAJO] }
+    InventorySummary:
+      type: object
+      required:
+        [totalProductosActivos, totalVariantesActivas, unidadesDisponibles, variantesConStockBajo, variantesAgotadas, valorEstimadoInventario]
+      properties:
+        totalProductosActivos: { type: integer }
+        totalVariantesActivas: { type: integer }
+        unidadesDisponibles: { type: integer }
+        variantesConStockBajo: { type: integer }
+        variantesAgotadas: { type: integer }
+        valorEstimadoInventario: { type: number }
+    LocationUpdate:
+      type: object
+      additionalProperties: false
+      required: [latitud, longitud, capturadaEn]
+      properties:
+        latitud: { type: number, minimum: -90, maximum: 90 }
+        longitud: { type: number, minimum: -180, maximum: 180 }
+        precisionMetros: { type: number, minimum: 0 }
+        velocidadMps: { type: number, minimum: 0 }
+        rumboGrados: { type: number, minimum: 0, maximum: 360 }
+        capturadaEn: { type: string, format: date-time }
+    Location:
+      type: object
+      required: [usuarioId, estado]
+      properties:
+        usuarioId: { type: string }
+        latitud: { type: [number, 'null'] }
+        longitud: { type: [number, 'null'] }
+        precisionMetros: { type: [number, 'null'] }
+        velocidadMps: { type: [number, 'null'] }
+        rumboGrados: { type: [number, 'null'] }
+        estado: { type: string, enum: [ACTIVA, DESACTUALIZADA, INACTIVA, SIN_DATOS] }
+        capturadaEn: { type: [string, 'null'], format: date-time }
+        recibidaEn: { type: [string, 'null'], format: date-time }
+        antiguedadSegundos: { type: [integer, 'null'] }
+    LocationResponse:
+      type: object
+      required: [ok, data, message]
+      properties:
+        ok: { type: boolean, const: true }
+        data: { $ref: '#/components/schemas/Location' }
+        message: { type: string }
+    ErrorDetail:
+      type: object
+      properties:
+        path: { type: string }
+        message: { type: string }
+    ErrorResponse:
+      type: object
+      required: [ok, error]
+      properties:
+        ok: { type: boolean, const: false }
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: array
+              items: { $ref: '#/components/schemas/ErrorDetail' }
+            traceId: { type: string }
+    HealthResponse:
+      type: object
+      required: [ok, data, message]
+      properties:
+        ok: { type: boolean, const: true }
+        data:
+          type: object
+          required: [service, status, database, timestamp]
+          properties:
+            service: { type: string, const: sion-inventory-api }
+            status: { type: string, const: UP }
+            database:
+              type: string
+              enum: [CONNECTED, DISCONNECTED, CONNECTING, DISCONNECTING, UNKNOWN]
+            timestamp: { type: string, format: date-time }
+        message: { type: string }
