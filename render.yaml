@@ -3,8 +3,8 @@ services:
     name: sion-inventory-api
     runtime: node
     plan: free
-    buildCommand: npm ci
-    startCommand: npm start
+    buildCommand: pnpm install --prod --frozen-lockfile
+    startCommand: pnpm start
     healthCheckPath: /api/v1/health
     envVars:
       - key: MONGODB_URI       # MongoDB Atlas connection string (replica set)
