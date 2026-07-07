@@ -3,7 +3,7 @@ services:
     name: sion-inventory-api
     runtime: node
     plan: free
-    buildCommand: pnpm install --prod --frozen-lockfile
+    buildCommand: pnpm install --prod --frozen-lockfile --config.strict-dep-builds=false
     startCommand: pnpm start
     healthCheckPath: /api/v1/health
     envVars:
