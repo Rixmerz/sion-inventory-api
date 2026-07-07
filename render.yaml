@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     buildCommand: pnpm install --prod --frozen-lockfile --config.strict-dep-builds=false
-    startCommand: pnpm start
+    startCommand: node server.js
     healthCheckPath: /api/v1/health
     envVars:
       - key: MONGODB_URI       # MongoDB Atlas connection string (replica set)
