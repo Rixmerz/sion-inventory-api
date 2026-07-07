@@ -2,7 +2,6 @@ services:
   - type: web
     name: sion-inventory-api
     runtime: node
-    rootDir: "Proyecto Base de datos"
     plan: free
     buildCommand: npm ci
     startCommand: npm start
