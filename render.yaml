@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: sion-inventory-api
+    runtime: node
+    rootDir: "Proyecto Base de datos"
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: MONGODB_URI       # MongoDB Atlas connection string (replica set)
+        sync: false
+      - key: TRACKING_API_KEY  # X-API-Key for /ubicacion endpoints
+        sync: false
+      - key: CORS_ORIGIN       # your frontend origin, or leave to override
+        sync: false
+      - key: NODE_ENV
+        value: production
